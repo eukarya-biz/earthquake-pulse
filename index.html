@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" class="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Earthquake Pulse</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M4 16h4l3-9 4 18 3-12 4 6h3' stroke='%2322d3ee' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script type="module" src="./src/main.tsx"></script>
+</head>
+
+<body style="margin: 0; overflow: hidden; background: #0a0a0f;">
+  <div id="loading-screen" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0a0f;z-index:9999;font-family:Inter,system-ui,sans-serif;">
+    <svg width="48" height="48" viewBox="0 0 32 32" style="margin-bottom:20px">
+      <path d="M4 16h4l3-9 4 18 3-12 4 6h3" stroke="#22d3ee" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <animate attributeName="stroke-opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+      </path>
+    </svg>
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px;background:linear-gradient(90deg,#22d3ee,#60a5fa,#22d3ee);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:titlePulse 4s ease-in-out infinite">Earthquake Pulse</div>
+    <div style="color:rgba(255,255,255,0.3);font-size:12px">Loading…</div>
+    <style>
+      @keyframes titlePulse { 0%,100% { background-position:0% 50%; } 50% { background-position:100% 50%; } }
+    </style>
+  </div>
+  <script type="module" src="./src/main.tsx"></script>
+</body>
+
+</html>
