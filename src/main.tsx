@@ -26,8 +26,14 @@ import "./index.css";
 const { view, overlayPlugin, toggleVisualMode, togglePlateBoundaries, setBackgroundColor } = await setupView();
 
 const earthquakes = await loadEarthquakeData();
+const HOURS_24 = 86400000;
 const sortedByTime = [...earthquakes].sort((a, b) => b.time.getTime() - a.time.getTime());
 if (sortedByTime.length > 0) {
+  const times = earthquakes.map((eq) => eq.time.getTime());
+  const maxTime = Math.max(...times);
+  const minTime = Math.min(...times);
+  const defaultStart = Math.max(minTime, maxTime - HOURS_24);
+  setTimeRange(defaultStart, maxTime);
   view.atmosphere.date = new Date(sortedByTime[0].time);
 }
 

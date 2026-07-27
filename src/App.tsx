@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Activity, TrendingUp, Globe, Play, Pause, RotateCcw, X, Sun, Moon, Settings, Info } from "lucide-react";
+import { Activity, TrendingUp, Globe, Play, Pause, RotateCcw, X, Sun, Moon, Settings, Info, ArrowUpDown } from "lucide-react";
 import type { Earthquake } from "./types/earthquake";
 import { calculateStats } from "./utils/earthquakeHelpers";
 import { getMagnitudeColor, MAG_CLASSES, getMagnitudeTextColor } from "./utils/magnitudeClassification";
@@ -140,6 +140,8 @@ function RightSidebar({
   onEarthquakeClick: (eq: Earthquake) => void;
   selectedEq: Earthquake | null;
 }) {
+  const [sortMode, setSortMode] = useState<"time" | "magnitude">("time");
+
   const stats = useMemo(() => {
     if (!visibleEarthquakes?.length) return { total: 0, minMagnitude: 0, maxMagnitude: 0, averageMagnitude: 0, minDepth: 0, maxDepth: 0 };
     return calculateStats(visibleEarthquakes);
@@ -147,9 +149,15 @@ function RightSidebar({
 
   const { t } = useTranslation();
 
-  const topEarthquakes = useMemo(() =>
-    [...(visibleEarthquakes || [])].sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 50),
-  [visibleEarthquakes]);
+  const topEarthquakes = useMemo(() => {
+    const sorted = [...(visibleEarthquakes || [])];
+    if (sortMode === "time") {
+      sorted.sort((a, b) => b.time.getTime() - a.time.getTime());
+    } else {
+      sorted.sort((a, b) => b.magnitude - a.magnitude);
+    }
+    return sorted;
+  }, [visibleEarthquakes, sortMode]);
 
   const magCounts = useMemo(() => {
     const counts = MAG_CLASSES.map((c) => ({
@@ -209,6 +217,13 @@ function RightSidebar({
         <div className="flex items-center gap-2">
           <Globe className="w-4 h-4 text-cyan-400" />
           <h3 className="text-sm font-semibold text-foreground/80">{t("sidebar.quakeList")} <span className="font-normal text-foreground/40">({topEarthquakes.length})</span></h3>
+          <button
+            onClick={() => setSortMode(sortMode === "time" ? "magnitude" : "time")}
+            className="ml-auto p-1 transition-colors text-foreground/30 hover:text-foreground/60"
+            title={sortMode === "time" ? t("sidebar.sortByMag") : t("sidebar.sortByTime")}
+          >
+            <ArrowUpDown className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
