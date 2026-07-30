@@ -116,7 +116,7 @@ function TopToolbar({
           {new Date(dataMaxTime).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", year: "numeric" })}
         </div>
         <Select value={rangeMode} onValueChange={handleRangeChange} disabled={dataLoading}>
-          <SelectTrigger className="h-5 gap-0 px-1 text-[10px] border-0 bg-muted/60 font-mono text-foreground/60 focus:ring-0 [&>svg]:hidden min-w-0 w-auto data-[disabled]:opacity-50">
+          <SelectTrigger className="h-5 gap-0 px-1.5 py-0.5 text-[10px] border-0 bg-cyan-400/15 text-cyan-400 rounded font-medium focus:ring-0 [&>svg]:hidden min-w-0 w-auto disabled:opacity-50">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -188,7 +188,7 @@ function TopToolbar({
     </header>
     {infoOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-auto">
-        <div className="absolute inset-0 bg-black/60" onClick={() => setInfoOpen(false)} />
+        <div className="absolute inset-0 backdrop-blur-sm bg-background/40" onClick={() => setInfoOpen(false)} />
         <div className="relative w-full max-w-md p-6 m-4 border shadow-2xl bg-background rounded-xl">
           <button onClick={() => setInfoOpen(false)} className="absolute top-4 right-4 text-foreground/40 hover:text-foreground/70">
             <X className="w-4 h-4" />
@@ -200,7 +200,7 @@ function TopToolbar({
           <div className="space-y-4 text-sm leading-relaxed text-foreground/70">
             <div>
               <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.data")}</h3>
-              <p>{t("info.dataDesc", { min: "0" })}</p>
+              <p>{t("info.dataDesc")}</p>
             </div>
             <div>
               <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.nav")}</h3>
@@ -223,13 +223,29 @@ function TopToolbar({
               <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.vmTitle")}</h3>
               <p className="text-xs">{t("info.vmDesc")}</p>
             </div>
+            <div>
+              <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.sdTitle")}</h3>
+              <p className="text-xs">{t("info.sdDesc")}</p>
+            </div>
+            <div>
+              <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.shTitle")}</h3>
+              <p className="text-xs">{t("info.shDesc")}</p>
+            </div>
+            <div>
+              <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.engine")}</h3>
+              <p className="text-xs">
+                <a href="https://github.com/reearth/navara" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">
+                  {t("info.engineDesc")}
+                </a>
+              </p>
+            </div>
           </div>
         </div>
       </div>
     )}
     {shareOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-auto">
-        <div className="absolute inset-0 bg-black/60" onClick={() => { setShareOpen(false); setCopied(false); }} />
+        <div className="absolute inset-0 backdrop-blur-sm bg-background/40" onClick={() => { setShareOpen(false); setCopied(false); }} />
         <div className="relative w-full max-w-lg p-6 m-4 border shadow-2xl bg-background rounded-xl">
           <button onClick={() => { setShareOpen(false); setCopied(false); }} className="absolute top-4 right-4 text-foreground/40 hover:text-foreground/70">
             <X className="w-4 h-4" />
