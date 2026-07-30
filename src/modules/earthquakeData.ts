@@ -5,17 +5,21 @@
  * provides magnitude-based config helpers, and builds GeoJSON features.
  */
 import { Color } from "@navaramap/three";
-import { fetchEarthquakes, generateMockEarthquakes } from "../utils/earthquakeDataFetcher";
+import { fetchEarthquakes, fetchEarthquakesByTimeRange, generateMockEarthquakes } from "../utils/earthquakeDataFetcher";
 import { classifyMagnitude } from "../utils/magnitudeClassification";
 import type { Earthquake } from "../types/earthquake";
 
 // ── Data loading ─────────────────────────────────────────────────────────────
 
-export async function loadEarthquakeData(): Promise<Earthquake[]> {
+export async function loadEarthquakeData(startTime?: number, endTime?: number): Promise<Earthquake[]> {
   let earthquakes: Earthquake[];
   try {
-    earthquakes = await fetchEarthquakes("week", "all");
-    earthquakes = earthquakes.filter((eq) => eq.magnitude >= 0);
+    if (startTime !== undefined && endTime !== undefined) {
+      earthquakes = await fetchEarthquakesByTimeRange(startTime, endTime);
+    } else {
+      earthquakes = await fetchEarthquakes("week", "all");
+      earthquakes = earthquakes.filter((eq) => eq.magnitude >= 0);
+    }
   } catch (error) {
     console.warn("⚠️ Failed to fetch real data, using mock data", error);
     earthquakes = generateMockEarthquakes(50);

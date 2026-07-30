@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Activity, TrendingUp, Globe, Play, Pause, RotateCcw, X, Sun, Moon, Settings, Info, ArrowUpDown } from "lucide-react";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Activity, TrendingUp, Globe, Play, Pause, RotateCcw, X, Sun, Moon, Settings, Info, ArrowUpDown, Share2, Copy, Check, RefreshCw } from "lucide-react";
 import type { Earthquake } from "./types/earthquake";
 import { calculateStats } from "./utils/earthquakeHelpers";
 import { getMagnitudeColor, MAG_CLASSES, getMagnitudeTextColor } from "./utils/magnitudeClassification";
@@ -20,10 +21,20 @@ export interface AppProps {
   onSelectEarthquake: (eq: Earthquake) => void;
   onDeselectEarthquake: () => void;
   onThemeChange: (dark: boolean) => void;
+  dataMinTime: number;
+  dataMaxTime: number;
+  getCameraState: () => { lng: number; lat: number; height: number; heading: number; pitch: number; roll: number } | null;
+  initialRealisticMode: boolean;
+  dataLoading: boolean;
+  onReloadData: (startTime?: number, endTime?: number) => Promise<void>;
+  sharedMinTime?: number;
+  sharedMaxTime?: number;
 }
 
 function TopToolbar({
   realisticMode, onToggleVisualMode, showPlates, onTogglePlates, darkMode, onToggleDark,
+  dataMinTime, dataMaxTime, onGetShareURL, dataLoading, onReloadData,
+  sharedMinTime, sharedMaxTime,
 }: {
   realisticMode: boolean;
   onToggleVisualMode: (v: boolean) => void;
@@ -31,10 +42,58 @@ function TopToolbar({
   onTogglePlates: (v: boolean) => void;
   darkMode: boolean;
   onToggleDark: () => void;
+  dataMinTime: number;
+  dataMaxTime: number;
+  onGetShareURL: () => string;
+  dataLoading: boolean;
+  onReloadData: (startTime?: number, endTime?: number) => Promise<void>;
+  sharedMinTime?: number;
+  sharedMaxTime?: number;
 }) {
   const { t, i18n } = useTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const hasSharedRange = sharedMinTime !== undefined && sharedMaxTime !== undefined;
+
+  const getRangeMode = () => {
+    const hash = window.location.hash.replace(/^#/, "");
+    const params = new URLSearchParams(hash);
+    if (hasSharedRange && !params.has("range")) return "fixed";
+    return params.get("range") || "7d";
+  };
+
+  const [rangeMode, setRangeMode] = useState(getRangeMode);
+
+  const handleRangeChange = useCallback((value: string) => {
+    if (value === rangeMode) return;
+    setRangeMode(value);
+    const now = Date.now();
+    if (value === "7d") {
+      onReloadData();
+    } else if (value === "24h") {
+      onReloadData(now - 86400000, now);
+    } else if (value === "fixed") {
+      onReloadData(sharedMinTime, sharedMaxTime);
+    }
+  }, [rangeMode, onReloadData, sharedMinTime, sharedMaxTime]);
+
+  const shareURL = useMemo(() => {
+    if (!shareOpen) return "";
+    return onGetShareURL();
+  }, [shareOpen]);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(shareURL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  }, [shareURL]);
 
   return (
     <>
@@ -49,6 +108,43 @@ function TopToolbar({
         </div>
       </div>
       <div className="flex-1" />
+      <div className="flex items-center gap-2">
+        <div className="text-[10px] text-muted-foreground font-mono">
+          <span className="text-muted-foreground/50">{t("header.dataRange")} </span>
+          {new Date(dataMinTime).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          {" – "}
+          {new Date(dataMaxTime).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", year: "numeric" })}
+        </div>
+        <Select value={rangeMode} onValueChange={handleRangeChange} disabled={dataLoading}>
+          <SelectTrigger className="h-5 gap-0 px-1 text-[10px] border-0 bg-muted/60 font-mono text-foreground/60 focus:ring-0 [&>svg]:hidden min-w-0 w-auto data-[disabled]:opacity-50">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="7d">{t("header.past7d")}</SelectItem>
+              <SelectItem value="24h">{t("header.past24h")}</SelectItem>
+              {(hasSharedRange || rangeMode === "fixed") && <SelectItem value="fixed">{t("header.fixed")}</SelectItem>}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <button
+          onClick={() => {
+            if (rangeMode === "24h") {
+              const now = Date.now();
+              onReloadData(now - 86400000, now);
+            } else if (rangeMode === "fixed") {
+              onReloadData(dataMinTime, dataMaxTime);
+            } else {
+              onReloadData();
+            }
+          }}
+          className="p-1 transition-colors text-foreground/30 hover:text-foreground/60"
+          title={t("header.refresh")}
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <div className="w-px h-6 bg-border shrink-0" />
       <div className="flex items-center gap-4">
         <button
           onClick={() => { const lang = i18n.language === "en" ? "ja" : "en"; i18n.changeLanguage(lang); localStorage.setItem("lang", lang); }}
@@ -84,6 +180,9 @@ function TopToolbar({
         </div>
         <button onClick={() => setInfoOpen(true)} className="p-1 transition-colors text-foreground/40 hover:text-foreground/70">
           <Info className="w-4 h-4" />
+        </button>
+        <button onClick={() => setShareOpen(true)} className="p-1 transition-colors text-foreground/40 hover:text-foreground/70">
+          <Share2 className="w-4 h-4" />
         </button>
       </div>
     </header>
@@ -123,6 +222,35 @@ function TopToolbar({
             <div>
               <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.vmTitle")}</h3>
               <p className="text-xs">{t("info.vmDesc")}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    {shareOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-auto">
+        <div className="absolute inset-0 bg-black/60" onClick={() => { setShareOpen(false); setCopied(false); }} />
+        <div className="relative w-full max-w-lg p-6 m-4 border shadow-2xl bg-background rounded-xl">
+          <button onClick={() => { setShareOpen(false); setCopied(false); }} className="absolute top-4 right-4 text-foreground/40 hover:text-foreground/70">
+            <X className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-2 mb-4">
+            <Share2 className="w-5 h-5 text-cyan-400" />
+            <h2 className="text-lg font-bold text-foreground">{t("share.title")}</h2>
+          </div>
+          <div className="space-y-4">
+            <p className="text-xs text-foreground/50">{t("share.desc")}</p>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={shareURL}
+                className="flex-1 h-9 px-3 text-xs font-mono border rounded-lg bg-muted/60 text-foreground/70 outline-none"
+                onFocus={(e) => e.target.select()}
+              />
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={handleCopy}>
+                {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? t("share.copied") : t("share.copy")}
+              </Button>
             </div>
           </div>
         </div>
@@ -270,9 +398,12 @@ function BottomTimeline({
   const maxTime = useMemo(() => sortedQuakes[sortedQuakes.length - 1]?.time.getTime() || 0, [sortedQuakes]);
   const totalMs = maxTime - minTime || 1;
   const MIN_GAP = 3600000;
+  const HOURS_1 = 3600000;
   const HOURS_24 = 86400000;
 
-  const defaultStart = useMemo(() => Math.max(minTime, maxTime - HOURS_24), [minTime, maxTime]);
+  const defaultWindow = useMemo(() => totalMs <= HOURS_24 * 2 ? HOURS_1 : HOURS_24, [totalMs, HOURS_24]);
+
+  const defaultStart = useMemo(() => Math.max(minTime, maxTime - defaultWindow), [minTime, maxTime, defaultWindow]);
 
   const [rangeStart, setRangeStart] = useState(defaultStart);
   const [rangeEnd, setRangeEnd] = useState(maxTime);
@@ -557,9 +688,40 @@ function EarthquakeDetail({
 
 export function App({
   allEarthquakes, visibleEarthquakes, onTimeChange, onEarthquakeClick, onToggleVisualMode, showPlates, onTogglePlates, selectedEarthquake, onSelectEarthquake, onDeselectEarthquake, onThemeChange,
+  dataMinTime, dataMaxTime, getCameraState, initialRealisticMode, dataLoading, onReloadData, sharedMinTime, sharedMaxTime,
 }: AppProps) {
-  const [realisticMode, setRealisticMode] = useState(false);
+  const { t } = useTranslation();
+  const [realisticMode, setRealisticMode] = useState(initialRealisticMode);
   const [darkMode, setDarkMode] = useState(true);
+
+  const rangeRef = useRef({ start: 0, end: 0 });
+
+  const handleTimeChange = useCallback((currentTime: Date, rangeStart: Date, rangeEnd: Date) => {
+    rangeRef.current = { start: rangeStart.getTime(), end: rangeEnd.getTime() };
+    onTimeChange(currentTime, rangeStart, rangeEnd);
+  }, [onTimeChange]);
+
+  const onGetShareURL = useCallback(() => {
+    const cam = getCameraState();
+    const params = new URLSearchParams();
+    if (cam) {
+      params.set("lng", cam.lng.toFixed(6));
+      params.set("lat", cam.lat.toFixed(6));
+      params.set("h", Math.round(cam.height).toString());
+      params.set("hd", cam.heading.toFixed(2));
+      params.set("p", cam.pitch.toFixed(2));
+      params.set("r", cam.roll.toFixed(2));
+    }
+    params.set("rs", Math.round(rangeRef.current.start).toString());
+    params.set("re", Math.round(rangeRef.current.end).toString());
+    params.set("pl", showPlates ? "1" : "0");
+    params.set("rl", realisticMode ? "1" : "0");
+    if (selectedEarthquake) params.set("eq", selectedEarthquake.id);
+    params.set("dmin", Math.round(dataMinTime).toString());
+    params.set("dmax", Math.round(dataMaxTime).toString());
+    const { origin, pathname } = window.location;
+    return `${origin}${pathname}#${params.toString()}`;
+  }, [getCameraState, showPlates, realisticMode, selectedEarthquake, dataMinTime, dataMaxTime]);
 
   const toggleDark = () => {
     const next = !darkMode;
@@ -579,7 +741,23 @@ export function App({
         onTogglePlates={onTogglePlates}
         darkMode={darkMode}
         onToggleDark={toggleDark}
+        dataMinTime={dataMinTime}
+        dataMaxTime={dataMaxTime}
+        onGetShareURL={onGetShareURL}
+        dataLoading={dataLoading}
+        onReloadData={onReloadData}
+        sharedMinTime={sharedMinTime}
+        sharedMaxTime={sharedMaxTime}
       />
+      {dataLoading && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-auto">
+          <div className="absolute inset-0 backdrop-blur-sm bg-background/40" />
+          <div className="relative flex items-center gap-3 px-6 py-4 border rounded-xl shadow-2xl bg-background">
+            <RefreshCw className="w-5 h-5 text-cyan-400 animate-spin" />
+            <span className="text-sm font-medium text-foreground/70">{t("loading.text")}</span>
+          </div>
+        </div>
+      )}
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1">
           {selectedEarthquake && (
@@ -597,7 +775,7 @@ export function App({
       </div>
       <BottomTimeline
         allEarthquakes={allEarthquakes}
-        onTimeChange={onTimeChange}
+        onTimeChange={handleTimeChange}
       />
     </div>
   );

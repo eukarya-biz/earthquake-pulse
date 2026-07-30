@@ -5,21 +5,25 @@ const resources = {
   en: {
     translation: {
       app: { title: "Earthquake Pulse", subtitle: "Real-time Global Seismic Activity" },
-      header: { plates: "Plates", realistic: "Realistic", settings: "Settings", autoRotate: "Auto-Rotate" },
-      sidebar: { statistics: "Statistics", visible: "Visible", total: "Past 7d", range: "Range", avgMag: "Avg Mag", magBreakdown: "Magnitude Breakdown", quakeList: "Earthquake List", noData: "No earthquakes to display", sortByTime: "Sort by time", sortByMag: "Sort by magnitude" },
+      header: { plates: "Plates", realistic: "Realistic", settings: "Settings", autoRotate: "Auto-Rotate", dataRange: "Data range:", past7d: "Past 7d", past24h: "Past 24h", fixed: "Fixed from Sharing", refresh: "Refresh data" },
+      sidebar: { statistics: "Statistics", visible: "Visible", total: "In Total", range: "Range", avgMag: "Avg Mag", magBreakdown: "Magnitude Breakdown", quakeList: "Earthquake List", noData: "No earthquakes to display", sortByTime: "Sort by time", sortByMag: "Sort by magnitude" },
       timeline: { current: "Current", visualFrom: "Visual from", events: "events", hrPerSec: "hr/s", reset24h: "Reset to last 24h" },
       detail: { depth: "Depth", time: "Time", lat: "Lat", lng: "Lng", unknown: "Unknown location" },
       info: { title: "About", data: "Data", dataDesc: "Real-time earthquake data from USGS. Magnitudes {{min}}+, past 7 days.", nav: "Navigation", navDrag: "Drag to rotate · Scroll to zoom", navClick: "Click marker or label for details", navDismiss: "Click empty space to dismiss", tlTitle: "Timeline", tlStart: "Cyan handle — range start", tlEnd: "Red handle — current time", tlPan: "Drag middle to pan", tlPlay: "Press Play to animate", vmTitle: "Visual Modes", vmDesc: "Toggle Realistic / Plates in Settings ⚙", close: "Close" },
+      share: { title: "Share View", desc: "Copy the link below to share the current view with camera position, timeline range, and settings.", copy: "Copy", copied: "Copied" },
+      loading: { text: "Loading data…" },
     },
   },
   ja: {
     translation: {
       app: { title: "Earthquake Pulse", subtitle: "リアルタイム世界地震活動" },
-      header: { plates: "プレート", realistic: "リアル", settings: "設定", autoRotate: "自動回転" },
-      sidebar: { statistics: "統計", visible: "表示中", total: "過去7日", range: "震度範囲", avgMag: "平均震度", magBreakdown: "震度分布", quakeList: "地震リスト", noData: "表示する地震がありません", sortByTime: "時間順", sortByMag: "震度順" },
+      header: { plates: "プレート", realistic: "リアル", settings: "設定", autoRotate: "自動回転", dataRange: "データ範囲:", past7d: "過去7日", past24h: "過去24時間", fixed: "共有範囲を固定", refresh: "データ更新" },
+      sidebar: { statistics: "統計", visible: "表示中", total: "合計", range: "震度範囲", avgMag: "平均震度", magBreakdown: "震度分布", quakeList: "地震リスト", noData: "表示する地震がありません", sortByTime: "時間順", sortByMag: "震度順" },
       timeline: { current: "現在", visualFrom: "表示開始", events: "件", hrPerSec: "時間/秒", reset24h: "24時間前へ" },
       detail: { depth: "深さ", time: "時刻", lat: "緯度", lng: "経度", unknown: "不明な場所" },
       info: { title: "説明", data: "データ", dataDesc: "USGS地震データ。震度{{min}}以上、過去7日間。", nav: "操作", navDrag: "ドラッグで回転 · スクロールでズーム", navClick: "マーカーまたはラベルをクリックで詳細", navDismiss: "空白をクリックで閉じる", tlTitle: "タイムライン", tlStart: "水色 — 開始時間", tlEnd: "赤色 — 現在時刻", tlPan: "中央をドラッグで移動", tlPlay: "再生で時間を進める", vmTitle: "表示モード", vmDesc: "設定 ⚙ でリアル / プレート切替", close: "閉じる" },
+      share: { title: "共有", desc: "以下のリンクをコピーして、カメラ位置・タイムライン範囲・設定を含む現在のビューを共有できます。", copy: "コピー", copied: "コピーしました" },
+      loading: { text: "データ読み込み中…" },
     },
   },
 };

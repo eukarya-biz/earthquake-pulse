@@ -1,7 +1,9 @@
 /**
  * Earthquake data fetcher
  * Fetches earthquake data from USGS API (reliable and CORS-friendly)
- * Format: https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php
+ * Formats:
+ *   Summary feed: https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php
+ *   FDSN query:   https://earthquake.usgs.gov/fdsnws/event/1/query
  */
 
 import type { Earthquake } from "../types/earthquake";
@@ -23,8 +25,25 @@ interface USGSResponse {
   features: USGSFeature[];
 }
 
+function mapFeatures(features: USGSFeature[]): Earthquake[] {
+  return features.map((feature) => ({
+    id: feature.id,
+    latitude: feature.geometry.coordinates[1],
+    longitude: feature.geometry.coordinates[0],
+    depth: feature.geometry.coordinates[2] * 1000, // Convert km to meters
+    magnitude: feature.properties.mag,
+    time: new Date(feature.properties.time),
+    place: feature.properties.place,
+    type: feature.properties.type,
+  }));
+}
+
+function toISODate(ts: number): string {
+  return new Date(ts).toISOString().split(".")[0];
+}
+
 /**
- * Fetch earthquakes from USGS API
+ * Fetch earthquakes from USGS summary feed (fixed time ranges).
  * @param timeRange - 'hour', 'day', 'week', 'month'
  * @param minMagnitude - 'significant', '4.5', '2.5', '1.0', 'all'
  */
@@ -41,19 +60,37 @@ export async function fetchEarthquakes(
     }
 
     const data: USGSResponse = await response.json();
-
-    return data.features.map((feature) => ({
-      id: feature.id,
-      latitude: feature.geometry.coordinates[1],
-      longitude: feature.geometry.coordinates[0],
-      depth: feature.geometry.coordinates[2] * 1000, // Convert km to meters
-      magnitude: feature.properties.mag,
-      time: new Date(feature.properties.time),
-      place: feature.properties.place,
-      type: feature.properties.type,
-    }));
+    return mapFeatures(data.features);
   } catch (error) {
     console.error('Error fetching earthquake data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch earthquakes from USGS FDSN query API for an arbitrary time range.
+ * Pads the range by 2 hours on each side and uses chronological order.
+ * Max 20000 results per query.
+ */
+export async function fetchEarthquakesByTimeRange(
+  startTime: number,
+  endTime: number,
+): Promise<Earthquake[]> {
+  const buffer = 2 * 3600000; // 2-hour buffer
+  const start = toISODate(startTime - buffer);
+  const end = toISODate(endTime + buffer);
+  const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${encodeURIComponent(start)}&endtime=${encodeURIComponent(end)}&minmagnitude=0&limit=20000&orderby=time-asc`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data: USGSResponse = await response.json();
+    return mapFeatures(data.features);
+  } catch (error) {
+    console.error('Error fetching earthquake data by time range:', error);
     throw error;
   }
 }

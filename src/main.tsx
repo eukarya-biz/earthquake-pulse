@@ -25,22 +25,138 @@ import "./index.css";
 
 const { view, overlayPlugin, toggleVisualMode, togglePlateBoundaries, setBackgroundColor } = await setupView();
 
-const earthquakes = await loadEarthquakeData();
 const HOURS_24 = 86400000;
-const sortedByTime = [...earthquakes].sort((a, b) => b.time.getTime() - a.time.getTime());
-if (sortedByTime.length > 0) {
+const HOURS_1 = 3600000;
+
+function getDefaultWindow(min: number, max: number): number {
+  return (max - min) <= HOURS_24 * 2 ? HOURS_1 : HOURS_24;
+}
+let earthquakes: Earthquake[];
+let dataMinTime = 0;
+let dataMaxTime = 0;
+let dataLoading = false;
+let overlayContainer: HTMLElement;
+let currentVisibleEarthquakes: Earthquake[] = [];
+let selectedEq: Earthquake | null = null;
+
+// ── Initial data load ────────────────────────────────────────────────────────
+
+let loadStartTime: number | undefined;
+let loadEndTime: number | undefined;
+let sharedMinTime: number | undefined;
+let sharedMaxTime: number | undefined;
+
+if (window.location.hash) {
+  try {
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const dmin = params.get("dmin");
+    const dmax = params.get("dmax");
+    const hasRange = params.has("range");
+    if (dmin && dmax) {
+      loadStartTime = parseInt(dmin, 10);
+      loadEndTime = parseInt(dmax, 10);
+      if (!hasRange) {
+        sharedMinTime = loadStartTime;
+        sharedMaxTime = loadEndTime;
+      }
+    }
+  } catch { /* ignore */ }
+}
+
+earthquakes = await loadEarthquakeData(loadStartTime, loadEndTime);
+{
   const times = earthquakes.map((eq) => eq.time.getTime());
-  const maxTime = Math.max(...times);
-  const minTime = Math.min(...times);
-  const defaultStart = Math.max(minTime, maxTime - HOURS_24);
-  setTimeRange(defaultStart, maxTime);
+  dataMinTime = times.length ? Math.min(...times) : 0;
+  dataMaxTime = times.length ? Math.max(...times) : 0;
+}
+const sortedByTime = [...earthquakes].sort((a, b) => b.time.getTime() - a.time.getTime());
+
+function getCameraState() {
+  try {
+    const pos = view.camera.positionGeographic as Record<string, number> | null;
+    const ori = view.camera.orientation as Record<string, number> | null;
+    if (!pos) return null;
+    return {
+      lng: pos.lng ?? 0,
+      lat: pos.lat ?? 0,
+      height: pos.height ?? 0,
+      heading: ori?.heading ?? 0,
+      pitch: ori?.pitch ?? 0,
+      roll: ori?.roll ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ── Parse shared state from URL hash ─────────────────────────────────────────
+
+let initialRangeStart: number | null = null;
+let initialRangeEnd: number | null = null;
+let showPlates = true;
+let initialRealisticMode = false;
+let initialSelectedEqId: string | null = null;
+
+if (window.location.hash) {
+  try {
+    const params = new URLSearchParams(window.location.hash.slice(1));
+
+    if (params.get("pl") === "0") {
+      showPlates = false;
+      togglePlateBoundaries(false);
+    }
+
+    if (params.get("rl") === "1") {
+      initialRealisticMode = true;
+      toggleVisualMode(true);
+    }
+
+    const rs = params.get("rs");
+    const re = params.get("re");
+    if (rs && re) {
+      initialRangeStart = parseInt(rs, 10);
+      initialRangeEnd = parseInt(re, 10);
+    }
+
+    if (params.has("eq")) {
+      initialSelectedEqId = params.get("eq");
+    }
+  } catch { /* ignore bad hash */ }
+}
+
+// Apply hash camera via setCamera (no animation) if present
+let hasHashCamera = false;
+if (window.location.hash) {
+  try {
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const camLng = params.get("lng");
+    const camLat = params.get("lat");
+    const camH = params.get("h");
+    if (camLng && camLat && camH) {
+      hasHashCamera = true;
+      view.setCamera({
+        lng: parseFloat(camLng),
+        lat: parseFloat(camLat),
+        height: parseFloat(camH),
+        heading: params.get("hd") ? parseFloat(params.get("hd")!) : 0,
+        pitch: params.get("p") ? parseFloat(params.get("p")!) : -30,
+        roll: params.get("r") ? parseFloat(params.get("r")!) : 0,
+      });
+    }
+  } catch { /* ignore */ }
+}
+
+if (sortedByTime.length > 0) {
+  const defaultStart = initialRangeStart ?? Math.max(dataMinTime, dataMaxTime - getDefaultWindow(dataMinTime, dataMaxTime));
+  const defaultEnd = initialRangeEnd ?? dataMaxTime;
+  setTimeRange(defaultStart, defaultEnd);
   view.atmosphere.date = new Date(sortedByTime[0].time);
 }
 
 // ── Overlay & visualization ──────────────────────────────────────────────────
 
 const mapContainer = document.getElementById("map-container")!;
-const overlayContainer = initOverlayContainer(mapContainer);
+overlayContainer = initOverlayContainer(mapContainer);
 setupOverlayUpdater(overlayPlugin, view);
 setupOverlayClickHandler(overlayContainer, (eqId) => {
   const eq = earthquakes.find((e) => e.id === eqId);
@@ -53,7 +169,8 @@ setupWaveAnimation(view, () => earthquakes);
 
 // ── Initial render ───────────────────────────────────────────────────────────
 
-let visible = getVisibleEarthquakes(earthquakes);
+const visible = getVisibleEarthquakes(earthquakes);
+currentVisibleEarthquakes = visible;
 updateEarthquakeVisualization(view, overlayPlugin, overlayContainer, visible);
 
 // ── React UI mount ───────────────────────────────────────────────────────────
@@ -62,10 +179,6 @@ const rootElement = document.createElement("div");
 rootElement.id = "ui-root";
 document.body.appendChild(rootElement);
 const root = createRoot(rootElement);
-
-let currentVisibleEarthquakes = visible;
-let showPlates = true;
-let selectedEq: Earthquake | null = null;
 
 function selectEarthquake(eq: Earthquake | null): void {
   selectedEq = eq;
@@ -76,6 +189,39 @@ let currentTheme: "dark" | "light" = "dark";
 
 function updateTheme(): void {
   setBackgroundColor(currentTheme === "light" ? 0xffffff : 0x000000);
+}
+
+// ── Dynamic data reload ──────────────────────────────────────────────────────
+
+async function reloadData(startTime?: number, endTime?: number): Promise<void> {
+  dataLoading = true;
+  renderApp();
+
+  try {
+    earthquakes = await loadEarthquakeData(startTime, endTime);
+  } catch {
+    // keep existing data on error
+  }
+
+  const times = earthquakes.map((eq) => eq.time.getTime());
+  dataMinTime = times.length ? Math.min(...times) : 0;
+  dataMaxTime = times.length ? Math.max(...times) : 0;
+
+  const sorted = [...earthquakes].sort((a, b) => b.time.getTime() - a.time.getTime());
+  if (sorted.length > 0) {
+    const defaultStart = Math.max(dataMinTime, dataMaxTime - getDefaultWindow(dataMinTime, dataMaxTime));
+    setTimeRange(defaultStart, dataMaxTime);
+    view.atmosphere.date = new Date(sorted[0].time);
+  }
+
+  selectedEq = null;
+  highlightOverlay(null);
+  const newVisible = getVisibleEarthquakes(earthquakes);
+  currentVisibleEarthquakes = newVisible;
+  updateEarthquakeVisualization(view, overlayPlugin, overlayContainer, newVisible);
+
+  dataLoading = false;
+  renderApp();
 }
 
 // ── Map pick events → select earthquake ───────────────────────────────────────
@@ -104,6 +250,14 @@ function renderApp(): void {
         selectedEarthquake={selectedEq}
         onSelectEarthquake={(eq) => selectEarthquake(eq)}
         onDeselectEarthquake={() => selectEarthquake(null)}
+        dataMinTime={dataMinTime}
+        dataMaxTime={dataMaxTime}
+        getCameraState={getCameraState}
+        initialRealisticMode={initialRealisticMode}
+        dataLoading={dataLoading}
+        onReloadData={reloadData}
+        sharedMinTime={sharedMinTime}
+        sharedMaxTime={sharedMaxTime}
       />
     </StrictMode>,
   );
@@ -123,7 +277,7 @@ function handleTimeChange(currentTime: Date, rangeStart: Date, rangeEnd: Date): 
 function handleEarthquakeClick(earthquake: Earthquake): void {
   selectEarthquake(earthquake);
   view.flyTo(
-    { lng: earthquake.longitude, lat: earthquake.latitude, height: earthquake.depth + 500_000 },
+    { lng: earthquake.longitude, lat: earthquake.latitude, height: earthquake.depth + 500_000, roll: 0 },
     1000,
   );
 }
@@ -145,15 +299,20 @@ if (loading) {
   setTimeout(() => loading.remove(), 500);
 }
 
-// ── Auto-select most recent earthquake ────────────────────────────────────────
+// ── Auto-select earthquake ─────────────────────────────────────────────────────
 
-const latest = [...earthquakes].sort((a, b) => b.time.getTime() - a.time.getTime())[0];
-if (latest) {
-  selectEarthquake(latest);
-  view.flyTo(
-    { lng: latest.longitude, lat: latest.latitude, height: latest.depth + 500_000 },
-    1000,
-  );
+if (initialSelectedEqId) {
+  const eq = earthquakes.find((e) => e.id === initialSelectedEqId);
+  if (eq) selectEarthquake(eq);
+} else if (!hasHashCamera) {
+  const latest = [...earthquakes].sort((a, b) => b.time.getTime() - a.time.getTime())[0];
+  if (latest) {
+    selectEarthquake(latest);
+    view.flyTo(
+      { lng: latest.longitude, lat: latest.latitude, height: latest.depth + 500_000, roll: 0 },
+      1000,
+    );
+  }
 }
 
 
