@@ -9,7 +9,7 @@ import { getVisibleEarthquakes, getWaveColor } from "./earthquakeData";
 import { lastWavePulse, WAVE_PULSE_INTERVAL } from "./earthquakeVisualization";
 import type { Earthquake } from "../types/earthquake";
 import type ThreeView from "@navaramap/three";
-import type { DefaultDescriptions } from "@navaramap/three_default_plugin";
+import type { DefaultDescriptions } from "@navaramap/three-default-plugin";
 
 type NavaraView = ThreeView<DefaultDescriptions>;
 

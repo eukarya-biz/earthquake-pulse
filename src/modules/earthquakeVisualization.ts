@@ -5,9 +5,9 @@
  * DOM overlay labels, and back-face culling for cylinders.
  */
 import ThreeView, { geodeticToVector3, degreeToRadian, northUpEastToFixedFrame } from "@navaramap/three";
-import type { CylinderMeshDesc } from "@navaramap/three_default_descs";
-import { OverlayPlugin, moveOverlayElement } from "@navaramap/three_plugins";
-import type { DefaultDescriptions } from "@navaramap/three_default_plugin";
+import type { CylinderMeshDesc } from "@navaramap/three-default-descs";
+import { OverlayPlugin, moveOverlayElement } from "@navaramap/three-plugins";
+import type { DefaultDescriptions } from "@navaramap/three-default-plugin";
 import type { Earthquake } from "../types/earthquake";
 import { SeismicWaveDescriptor } from "../descriptors/SeismicWaveDescriptor";
 import { createGeoJSON, getEarthquakeConfig, getWaveColor } from "./earthquakeData";
