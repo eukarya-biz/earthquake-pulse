@@ -22,9 +22,34 @@ import { setupWaveAnimation } from "./modules/waveSetup";
 import "./i18n";
 import "./index.css";
 
+// ── Loading progress ─────────────────────────────────────────────────────────
+
+const isJa = typeof localStorage !== "undefined" && localStorage.getItem("lang") === "ja";
+
+const progressLabels: Record<string, [string, string]> = {
+  init: ["Initializing 3D engine…", "3Dエンジンを初期化中…"],
+  data: ["Fetching earthquake data…", "地震データを取得中…"],
+  viz: ["Setting up visualization…", "可視化を設定中…"],
+  terrain: ["Loading terrain data…", "地形データを読み込み中…"],
+  ui: ["Preparing UI…", "UIを準備中…"],
+  render: ["Rendering…", "レンダリング中…"],
+  ready: ["Ready", "準備完了"],
+};
+
+function setLoadingProgress(pct: number, key: string): void {
+  const bar = document.getElementById("loading-progress");
+  const label = document.getElementById("loading-text");
+  if (bar) bar.style.width = `${pct}%`;
+  if (label) label.textContent = progressLabels[key]?.[isJa ? 1 : 0] ?? "";
+}
+
 // ── Bootstrap ────────────────────────────────────────────────────────────────
 
+setLoadingProgress(5, "init");
+
 const { view, overlayPlugin, toggleVisualMode, togglePlateBoundaries, setBackgroundColor } = await setupView();
+
+setLoadingProgress(15, "data");
 
 const HOURS_24 = 86400000;
 const HOURS_1 = 3600000;
@@ -65,6 +90,8 @@ if (window.location.hash) {
 }
 
 earthquakes = await loadEarthquakeData(loadStartTime, loadEndTime);
+
+setLoadingProgress(45, "viz");
 {
   const times = earthquakes.map((eq) => eq.time.getTime());
   dataMinTime = times.length ? Math.min(...times) : 0;
@@ -171,6 +198,8 @@ setupOverlayClickHandler(overlayContainer, (eqId) => {
 // ── Seismic wave animation ──────────────────────────────────────────────────
 
 setupWaveAnimation(view, () => earthquakes);
+
+setLoadingProgress(70, "ui");
 
 // ── Initial render ───────────────────────────────────────────────────────────
 
@@ -293,10 +322,12 @@ function handleToggleVisualMode(mode: VisualMode): void {
 
 // ── Render ───────────────────────────────────────────────────────────────────
 
+setLoadingProgress(90, "render");
 renderApp();
 
 // ── Remove loading screen ────────────────────────────────────────────────────
 
+setLoadingProgress(100, "ready");
 const loading = document.getElementById("loading-screen");
 if (loading) {
   loading.style.transition = "opacity 0.4s";

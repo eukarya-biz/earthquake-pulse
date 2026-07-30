@@ -86,6 +86,9 @@ export async function setupView(): Promise<ViewContext> {
 
   // ── Digital globe ────────────────────────────────────────────────────────
 
+  const loadingLabel = document.getElementById("loading-text");
+  const isJa = typeof localStorage !== "undefined" && localStorage.getItem("lang") === "ja";
+  if (loadingLabel) loadingLabel.textContent = isJa ? "地形データを読み込み中…" : "Loading terrain data…";
   await DigitalGlobeDescriptor.preload();
   (view as ThreeView<Record<string, unknown>>).registerMesh("digitalGlobe", DigitalGlobeDescriptor);
   const digitalGlobeHandle = (view as ThreeView<Record<string, unknown>>).addMesh({ digitalGlobe: {} });
