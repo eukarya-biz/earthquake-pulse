@@ -11,6 +11,14 @@ pnpm run dev
 
 Opens at `http://localhost:8080`.
 
+## Screenshots
+
+| Grayscale | Realistic |
+|:---:|:---:|
+| ![Grayscale](public/screenshot-grayscale.png) | ![Realistic](public/screenshot-realistic.png) |
+| **Realistic 2** | **Detail** |
+| ![Realistic 2](public/screenshot-realistic-2.png) | ![Detail](public/screenshot-detail.png) |
+
 ## Features
 
 - **Time Range Selector** — Choose Past 7 days, Past 24 hours, or Fixed from Sharing to control data scope. Refresh button to re-fetch.
