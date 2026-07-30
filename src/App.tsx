@@ -347,10 +347,11 @@ function RightSidebar({
           <h3 className="text-sm font-semibold text-foreground/80">{t("sidebar.quakeList")} <span className="font-normal text-foreground/40">({topEarthquakes.length})</span></h3>
           <button
             onClick={() => setSortMode(sortMode === "time" ? "magnitude" : "time")}
-            className="ml-auto p-1 transition-colors text-foreground/30 hover:text-foreground/60"
+            className="ml-auto flex items-center gap-1 text-[10px] text-foreground/40 hover:text-foreground/60 transition-colors"
             title={sortMode === "time" ? t("sidebar.sortByMag") : t("sidebar.sortByTime")}
           >
-            <ArrowUpDown className="w-3.5 h-3.5" />
+            {sortMode === "time" ? t("sidebar.sortTime") : t("sidebar.sortMag")}
+            <ArrowUpDown className="w-3 h-3" />
           </button>
         </div>
       </div>
