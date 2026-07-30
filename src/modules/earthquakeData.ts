@@ -70,7 +70,7 @@ export function getEarthquakeConfig(magnitude: number): EarthquakeConfig {
     size: sizes[cls.name] ?? 40_000,
     color: new Color().setHex(cls.hex),
     hexColor: cls.color,
-    opacity: 0.1,
+    opacity: 0.25,
   };
 }
 

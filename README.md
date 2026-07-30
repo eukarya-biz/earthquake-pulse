@@ -88,6 +88,17 @@ src/
 - **Theme (☀/🌙)** — Switch between dark and light mode
 - **Language** — Toggle EN / JA in the header
 
+## Data Sources & Attribution
+
+| Data | Source | License |
+|---|---|---|
+| Earthquake events | [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/) | Public Domain |
+| Tectonic plate boundaries | USGS — Bird, P. (2003) | Public Domain |
+| Land boundaries | [Natural Earth 1:110m](https://www.naturalearthdata.com/) | Public Domain |
+| Terrain elevation | [Mapzen Terrarium Tiles](https://github.com/tilezen/joerd) | CC-BY 4.0 |
+| Satellite imagery | [Re:Earth Papers](https://papers.reearth.land/) | — |
+| Terrain mesh | [Re:Earth Terrain](https://terrain.reearth.land/) | — |
+
 ## License
 
 Dual-licensed under Apache 2.0 or MIT at your option.

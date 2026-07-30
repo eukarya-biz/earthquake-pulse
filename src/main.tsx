@@ -9,6 +9,7 @@ import { createRoot } from "react-dom/client";
 import type { Earthquake } from "./types/earthquake";
 import { App } from "./App";
 import { setupView } from "./modules/viewSetup";
+import type { VisualMode } from "./modules/viewSetup";
 import { loadEarthquakeData, setTimeRange, getVisibleEarthquakes } from "./modules/earthquakeData";
 import {
   initOverlayContainer,
@@ -94,7 +95,7 @@ function getCameraState() {
 let initialRangeStart: number | null = null;
 let initialRangeEnd: number | null = null;
 let showPlates = true;
-let initialRealisticMode = false;
+let initialVisualMode: VisualMode = "digital";
 let initialSelectedEqId: string | null = null;
 
 if (window.location.hash) {
@@ -107,8 +108,12 @@ if (window.location.hash) {
     }
 
     if (params.get("rl") === "1") {
-      initialRealisticMode = true;
-      toggleVisualMode(true);
+      initialVisualMode = "realistic";
+      toggleVisualMode("realistic");
+    }
+    if (params.get("dm") === "1") {
+      initialVisualMode = "digital";
+      toggleVisualMode("digital");
     }
 
     const rs = params.get("rs");
@@ -253,7 +258,7 @@ function renderApp(): void {
         dataMinTime={dataMinTime}
         dataMaxTime={dataMaxTime}
         getCameraState={getCameraState}
-        initialRealisticMode={initialRealisticMode}
+        initialVisualMode={initialVisualMode}
         dataLoading={dataLoading}
         onReloadData={reloadData}
         sharedMinTime={sharedMinTime}
@@ -282,8 +287,8 @@ function handleEarthquakeClick(earthquake: Earthquake): void {
   );
 }
 
-function handleToggleVisualMode(realistic: boolean): void {
-  toggleVisualMode(realistic);
+function handleToggleVisualMode(mode: VisualMode): void {
+  toggleVisualMode(mode);
 }
 
 // ── Render ───────────────────────────────────────────────────────────────────

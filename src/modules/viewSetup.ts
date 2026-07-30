@@ -10,6 +10,9 @@ import type { AttributionItem } from "@navaramap/three";
 import { DefaultDescriptions, DefaultPlugin } from "@navaramap/three-default-plugin";
 import type { AmbientLightDesc } from "@navaramap/three-default-descs";
 import { TileJsonPlugin, OverlayPlugin } from "@navaramap/three-plugins";
+import { DigitalGlobeDescriptor } from "../descriptors/DigitalGlobeDescriptor";
+
+export type VisualMode = "grayscale" | "realistic" | "digital";
 
 // ── Basemap descriptors ──────────────────────────────────────────────────────
 
@@ -33,7 +36,7 @@ export interface ViewContext {
   tilejson: TileJsonPlugin;
   overlayPlugin: OverlayPlugin;
   setBasemap: (basemap: BasemapDescriptor) => Promise<void>;
-  toggleVisualMode: (realistic: boolean) => void;
+  toggleVisualMode: (mode: VisualMode) => void;
   togglePlateBoundaries: (visible: boolean) => void;
   setBackgroundColor: (hex: number) => void;
 }
@@ -71,14 +74,22 @@ export async function setupView(): Promise<ViewContext> {
 
   // ── Terrain ──────────────────────────────────────────────────────────────
 
-  const terrain = view.addSource({
+  const terrainSource = view.addSource({
     type: "quantized-mesh",
     url: "https://terrain.reearth.land/cesium-mesh/ellipsoid/{z}/{x}/{y}.terrain",
     maxZoom: 18,
     requestVertexNormals: true,
     requestWaterMask: true,
   });
-  view.addLayer({ type: "terrain", source: terrain, terrain: {} });
+  let terrainLayer: ReturnType<typeof view.addLayer> | undefined;
+  terrainLayer = view.addLayer({ type: "terrain", source: terrainSource, terrain: {} });
+
+  // ── Digital globe ────────────────────────────────────────────────────────
+
+  await DigitalGlobeDescriptor.preload();
+  (view as ThreeView<Record<string, unknown>>).registerMesh("digitalGlobe", DigitalGlobeDescriptor);
+  const digitalGlobeHandle = (view as ThreeView<Record<string, unknown>>).addMesh({ digitalGlobe: {} });
+  (digitalGlobeHandle as { visible: boolean }).visible = false;
 
   // ── Tectonic plate boundaries ────────────────────────────────────────────
 
@@ -140,30 +151,60 @@ export async function setupView(): Promise<ViewContext> {
     { attribution: "© Re:Earth Terrain", attributionUrl: "https://terrain.reearth.land/" },
     { attribution: "Earthquake data: USGS", attributionUrl: "https://earthquake.usgs.gov/" },
     { attribution: "Plate Boundaries: USGS — Bird, P. (2003)", attributionUrl: "https://www.usgs.gov/" },
+    { attribution: "Land data: Natural Earth", attributionUrl: "https://www.naturalearthdata.com/" },
+    { attribution: "Elevation: Mapzen Terrain Tiles", attributionUrl: "https://github.com/tilezen/joerd" },
   ]);
 
   // ── Visual mode toggler ──────────────────────────────────────────────────
 
-  function toggleVisualMode(realistic: boolean): void {
-    view.globe.hideUnderground = realistic;
+  let currentMode: VisualMode = "grayscale";
 
-    if (realistic) {
-      defaultScene.aerialPerspective.update({ visible: true });
-      defaultScene.sky.update({ visible: true });
+  async function toggleVisualMode(mode: VisualMode): Promise<void> {
+    if (mode === currentMode) return;
+    currentMode = mode;
+
+    const isRealistic = mode === "realistic";
+    const isDigital = mode === "digital";
+
+    // Sky & atmosphere
+    defaultScene.aerialPerspective.update({ visible: isRealistic });
+    defaultScene.sky.update({ visible: isRealistic });
+
+    // Digital globe points
+    (digitalGlobeHandle as { visible: boolean }).visible = isDigital;
+
+    // Terrain — hide in digital mode
+    if (isDigital) {
+      terrainLayer?.delete();
+      terrainLayer = undefined;
+    } else if (!terrainLayer) {
+      terrainLayer = view.addLayer({ type: "terrain", source: terrainSource, terrain: {} });
+    }
+
+    // Basemap
+    if (isDigital) {
+      basemapLayer?.delete();
+      basemapSource?.delete();
+      if (basemapAttr) { view.attribution?.remove(basemapAttr); basemapAttr = undefined; }
+      currentKey = undefined;
+      view.toneMappingExposure = 3;
+      ambientLightHandle.update({ ambient: { intensity: 0.3 } });
+      view.globe.hideUnderground = false;
+    } else if (isRealistic) {
+      view.globe.hideUnderground = true;
       view.toneMappingExposure = 12;
       ambientLightHandle.update({ ambient: { intensity: 0.06 } });
-      setBasemap(BASEMAP_BLUEMARBLE).catch((e) => console.error("Basemap switch failed:", e));
+      await setBasemap(BASEMAP_BLUEMARBLE);
     } else {
-      defaultScene.aerialPerspective.update({ visible: false });
-      defaultScene.sky.update({ visible: false });
+      view.globe.hideUnderground = false;
       view.toneMappingExposure = 6;
       ambientLightHandle.update({ ambient: { intensity: 0.4 } });
-      setBasemap(BASEMAP_GRAYSCALE).catch((e) => console.error("Basemap switch failed:", e));
+      await setBasemap(BASEMAP_GRAYSCALE);
     }
   }
 
   // Start in digital mode
-  toggleVisualMode(false);
+  await toggleVisualMode("digital");
 
   function setBackgroundColor(hex: number): void {
     const renderer = (view as unknown as { _renderer: { setClearColor: (c: number) => void } })._renderer;

@@ -3,9 +3,13 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Activity, TrendingUp, Globe, Play, Pause, RotateCcw, X, Sun, Moon, Settings, Info, ArrowUpDown, Share2, Copy, Check, RefreshCw } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Activity, TrendingUp, Globe, Play, Pause, RotateCcw, X, Sun, Moon, Settings, Info, ArrowUpDown, Share2, Copy, Check, RefreshCw, ChevronDown } from "lucide-react";
+import type { VisualMode } from "./modules/viewSetup";
 import type { Earthquake } from "./types/earthquake";
+import { DigitalGlobeDescriptor } from "./descriptors/DigitalGlobeDescriptor";
 import { calculateStats } from "./utils/earthquakeHelpers";
 import { getMagnitudeColor, MAG_CLASSES, getMagnitudeTextColor } from "./utils/magnitudeClassification";
 
@@ -14,7 +18,7 @@ export interface AppProps {
   visibleEarthquakes: Earthquake[];
   onTimeChange: (time: Date, rangeStart: Date, rangeEnd: Date) => void;
   onEarthquakeClick: (earthquake: Earthquake) => void;
-  onToggleVisualMode: (realistic: boolean) => void;
+  onToggleVisualMode: (mode: VisualMode) => void;
   showPlates: boolean;
   onTogglePlates: (show: boolean) => void;
   selectedEarthquake: Earthquake | null;
@@ -24,7 +28,7 @@ export interface AppProps {
   dataMinTime: number;
   dataMaxTime: number;
   getCameraState: () => { lng: number; lat: number; height: number; heading: number; pitch: number; roll: number } | null;
-  initialRealisticMode: boolean;
+  initialVisualMode: VisualMode;
   dataLoading: boolean;
   onReloadData: (startTime?: number, endTime?: number) => Promise<void>;
   sharedMinTime?: number;
@@ -32,53 +36,24 @@ export interface AppProps {
 }
 
 function TopToolbar({
-  realisticMode, onToggleVisualMode, showPlates, onTogglePlates, darkMode, onToggleDark,
-  dataMinTime, dataMaxTime, onGetShareURL, dataLoading, onReloadData,
-  sharedMinTime, sharedMaxTime,
+  visualMode, onVisualModeChange, showPlates, onTogglePlates, darkMode, onToggleDark,
+  onGetShareURL,
 }: {
-  realisticMode: boolean;
-  onToggleVisualMode: (v: boolean) => void;
+  visualMode: VisualMode;
+  onVisualModeChange: (mode: VisualMode) => void;
   showPlates: boolean;
   onTogglePlates: (v: boolean) => void;
   darkMode: boolean;
   onToggleDark: () => void;
-  dataMinTime: number;
-  dataMaxTime: number;
   onGetShareURL: () => string;
-  dataLoading: boolean;
-  onReloadData: (startTime?: number, endTime?: number) => Promise<void>;
-  sharedMinTime?: number;
-  sharedMaxTime?: number;
 }) {
   const { t, i18n } = useTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  const hasSharedRange = sharedMinTime !== undefined && sharedMaxTime !== undefined;
-
-  const getRangeMode = () => {
-    const hash = window.location.hash.replace(/^#/, "");
-    const params = new URLSearchParams(hash);
-    if (hasSharedRange && !params.has("range")) return "fixed";
-    return params.get("range") || "7d";
-  };
-
-  const [rangeMode, setRangeMode] = useState(getRangeMode);
-
-  const handleRangeChange = useCallback((value: string) => {
-    if (value === rangeMode) return;
-    setRangeMode(value);
-    const now = Date.now();
-    if (value === "7d") {
-      onReloadData();
-    } else if (value === "24h") {
-      onReloadData(now - 86400000, now);
-    } else if (value === "fixed") {
-      onReloadData(sharedMinTime, sharedMaxTime);
-    }
-  }, [rangeMode, onReloadData, sharedMinTime, sharedMaxTime]);
+  const [exaggerationOpen, setExaggerationOpen] = useState(false);
+  const [exaggeration, setExaggeration] = useState(DigitalGlobeDescriptor.exaggeration);
 
   const shareURL = useMemo(() => {
     if (!shareOpen) return "";
@@ -108,43 +83,46 @@ function TopToolbar({
         </div>
       </div>
       <div className="flex-1" />
-      <div className="flex items-center gap-2">
-        <div className="text-[10px] text-muted-foreground font-mono">
-          <span className="text-muted-foreground/50">{t("header.dataRange")} </span>
-          {new Date(dataMinTime).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-          {" – "}
-          {new Date(dataMaxTime).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", year: "numeric" })}
-        </div>
-        <Select value={rangeMode} onValueChange={handleRangeChange} disabled={dataLoading}>
-          <SelectTrigger className="h-5 gap-0 px-1.5 py-0.5 text-[10px] border-0 bg-cyan-400/15 text-cyan-400 rounded font-medium focus:ring-0 [&>svg]:hidden min-w-0 w-auto disabled:opacity-50">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="7d">{t("header.past7d")}</SelectItem>
-              <SelectItem value="24h">{t("header.past24h")}</SelectItem>
-              {(hasSharedRange || rangeMode === "fixed") && <SelectItem value="fixed">{t("header.fixed")}</SelectItem>}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <button
-          onClick={() => {
-            if (rangeMode === "24h") {
-              const now = Date.now();
-              onReloadData(now - 86400000, now);
-            } else if (rangeMode === "fixed") {
-              onReloadData(dataMinTime, dataMaxTime);
-            } else {
-              onReloadData();
-            }
-          }}
-          className="p-1 transition-colors text-foreground/30 hover:text-foreground/60"
-          title={t("header.refresh")}
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-        </button>
+      <div className="relative">
+      <ToggleGroup type="single" value={visualMode} onValueChange={(v) => v && onVisualModeChange(v as VisualMode)} variant="outline" size="sm" spacing={0}>
+        <ToggleGroupItem value="grayscale" className="text-[10px] h-6 px-2.5">{t("header.grayscale")}</ToggleGroupItem>
+        <ToggleGroupItem value="realistic" className="text-[10px] h-6 px-2.5">{t("header.realistic")}</ToggleGroupItem>
+        <ToggleGroupItem value="digital" className="text-[10px] h-6 pl-2.5 pr-1.5">
+          <span className="flex items-center gap-0.5">
+            {t("header.digital")}
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setExaggerationOpen(!exaggerationOpen); }}
+              className="inline-flex items-center justify-center size-4 rounded-sm hover:bg-black/10 dark:hover:bg-white/10"
+            >
+              <ChevronDown className="size-3" />
+            </span>
+          </span>
+        </ToggleGroupItem>
+      </ToggleGroup>
+      {exaggerationOpen && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setExaggerationOpen(false)} />
+          <div className="absolute right-0 z-30 p-3 mt-1 space-y-2 border rounded-lg shadow-xl w-44 bg-background">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-foreground/70">{t("header.exaggeration")}</span>
+              <span className="text-[10px] font-mono text-foreground/60">{exaggeration}×</span>
+            </div>
+            <Slider
+              value={[exaggeration]}
+              min={1}
+              max={100}
+              step={1}
+              onValueChange={([v]) => {
+                setExaggeration(v);
+                DigitalGlobeDescriptor.exaggeration = v;
+              }}
+            />
+          </div>
+        </>
+      )}
       </div>
-      <div className="w-px h-6 bg-border shrink-0" />
       <div className="flex items-center gap-4">
         <button
           onClick={() => { const lang = i18n.language === "en" ? "ja" : "en"; i18n.changeLanguage(lang); localStorage.setItem("lang", lang); }}
@@ -169,10 +147,6 @@ function TopToolbar({
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-foreground/70">{t("header.plates")}</span>
                   <Switch checked={showPlates} onCheckedChange={onTogglePlates} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-foreground/70">{t("header.realistic")}</span>
-                  <Switch checked={realisticMode} onCheckedChange={onToggleVisualMode} />
                 </div>
               </div>
             </>
@@ -401,12 +375,44 @@ function RightSidebar({
 }
 
 function BottomTimeline({
-  allEarthquakes, onTimeChange,
+  allEarthquakes, onTimeChange, onReloadData, dataLoading, dataMinTime, dataMaxTime,
+  sharedMinTime, sharedMaxTime,
 }: {
   allEarthquakes: Earthquake[];
   onTimeChange: (time: Date, rangeStart: Date, rangeEnd: Date) => void;
+  onReloadData: (startTime?: number, endTime?: number) => Promise<void>;
+  dataLoading: boolean;
+  dataMinTime: number;
+  dataMaxTime: number;
+  sharedMinTime?: number;
+  sharedMaxTime?: number;
 }) {
   const { t } = useTranslation();
+
+  const hasSharedRange = sharedMinTime !== undefined && sharedMaxTime !== undefined;
+
+  const getRangeMode = useCallback(() => {
+    const hash = window.location.hash.replace(/^#/, "");
+    const params = new URLSearchParams(hash);
+    if (hasSharedRange && !params.has("range")) return "fixed";
+    return params.get("range") || "7d";
+  }, [hasSharedRange]);
+
+  const [rangeMode, setRangeMode] = useState(getRangeMode);
+
+  const handleRangeChange = useCallback((value: string) => {
+    if (value === rangeMode) return;
+    setRangeMode(value);
+    const now = Date.now();
+    if (value === "7d") {
+      onReloadData();
+    } else if (value === "24h") {
+      onReloadData(now - 86400000, now);
+    } else if (value === "fixed") {
+      onReloadData(sharedMinTime, sharedMaxTime);
+    }
+  }, [rangeMode, onReloadData, sharedMinTime, sharedMaxTime]);
+
   const sortedQuakes = useMemo(() =>
     [...allEarthquakes].sort((a, b) => a.time.getTime() - b.time.getTime()),
   [allEarthquakes]);
@@ -517,7 +523,6 @@ function BottomTimeline({
 
   const startPct = totalMs ? ((rangeStart - minTime) / totalMs) * 100 : 0;
   const endPct = totalMs ? ((rangeEnd - minTime) / totalMs) * 100 : 100;
-  const visibleCount = sortedQuakes.filter(eq => eq.time.getTime() >= rangeStart && eq.time.getTime() <= rangeEnd).length;
   const speeds = [1, 2, 5, 10];
 
   // Hourly grid line positions
@@ -557,8 +562,8 @@ function BottomTimeline({
   return (
     <footer className="h-[160px] border-t border-border bg-background flex flex-col shrink-0 pointer-events-auto">
       {/* Top row: controls */}
-      <div className="flex items-center justify-between px-6 py-1.5 border-b border-border text-foreground/70">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center px-6 py-1.5 border-b border-border text-foreground/70">
+        <div className="flex items-center gap-2 flex-1">
           <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setIsPlaying(!isPlaying)}>
             {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </Button>
@@ -580,14 +585,49 @@ function BottomTimeline({
             <RotateCcw className="w-4 h-4" />
           </Button>
         </div>
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center justify-center gap-2">
+          <div className="text-[10px] text-muted-foreground font-mono">
+            <span className="text-muted-foreground/50">{t("header.dataRange")} </span>
+            {new Date(dataMinTime).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+            {" – "}
+            {new Date(dataMaxTime).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", year: "numeric" })}
+          </div>
+          <Select value={rangeMode} onValueChange={handleRangeChange} disabled={dataLoading}>
+            <SelectTrigger className="h-5 gap-0 px-1.5 py-0.5 text-[10px] border-0 bg-cyan-400/15 text-cyan-400 rounded font-medium focus:ring-0 [&>svg]:hidden min-w-0 w-auto disabled:opacity-50">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="7d">{t("header.past7d")}</SelectItem>
+                <SelectItem value="24h">{t("header.past24h")}</SelectItem>
+                {(hasSharedRange || rangeMode === "fixed") && <SelectItem value="fixed">{t("header.fixed")}</SelectItem>}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <button
+            onClick={() => {
+              if (rangeMode === "24h") {
+                const now = Date.now();
+                onReloadData(now - 86400000, now);
+              } else if (rangeMode === "fixed") {
+                onReloadData(dataMinTime, dataMaxTime);
+              } else {
+                onReloadData();
+              }
+            }}
+            className="p-1 transition-colors text-foreground/30 hover:text-foreground/60"
+            title={t("header.refresh")}
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="flex items-center gap-3 text-xs flex-1 justify-end">
           <span className="text-[10px] px-1.5 py-0.5 bg-cyan-400/15 text-cyan-400 rounded font-medium mr-0.5">{t("timeline.visualFrom")}</span>
           <span className="font-mono text-cyan-400">{fmt(rangeStart)}</span>
           <span className="text-muted-foreground">–</span>
           <span className="font-mono text-red-400">{fmt(rangeEnd)}</span>
           <span className="text-[10px] px-1.5 py-0.5 bg-red-500/15 text-red-400 rounded font-medium ml-0.5">{t("timeline.current")}</span>
-          <span className="text-muted-foreground">|</span>
-          <span>{visibleCount}/{sortedQuakes.length} {t("timeline.events")}</span>
+
         </div>
       </div>
 
@@ -705,10 +745,10 @@ function EarthquakeDetail({
 
 export function App({
   allEarthquakes, visibleEarthquakes, onTimeChange, onEarthquakeClick, onToggleVisualMode, showPlates, onTogglePlates, selectedEarthquake, onSelectEarthquake, onDeselectEarthquake, onThemeChange,
-  dataMinTime, dataMaxTime, getCameraState, initialRealisticMode, dataLoading, onReloadData, sharedMinTime, sharedMaxTime,
+  dataMinTime, dataMaxTime, getCameraState, initialVisualMode, dataLoading, onReloadData, sharedMinTime, sharedMaxTime,
 }: AppProps) {
   const { t } = useTranslation();
-  const [realisticMode, setRealisticMode] = useState(initialRealisticMode);
+  const [visualMode, setVisualMode] = useState<VisualMode>(initialVisualMode);
   const [darkMode, setDarkMode] = useState(true);
 
   const rangeRef = useRef({ start: 0, end: 0 });
@@ -732,13 +772,14 @@ export function App({
     params.set("rs", Math.round(rangeRef.current.start).toString());
     params.set("re", Math.round(rangeRef.current.end).toString());
     params.set("pl", showPlates ? "1" : "0");
-    params.set("rl", realisticMode ? "1" : "0");
+    if (visualMode === "realistic") params.set("rl", "1");
+    if (visualMode === "digital") params.set("dm", "1");
     if (selectedEarthquake) params.set("eq", selectedEarthquake.id);
     params.set("dmin", Math.round(dataMinTime).toString());
     params.set("dmax", Math.round(dataMaxTime).toString());
     const { origin, pathname } = window.location;
     return `${origin}${pathname}#${params.toString()}`;
-  }, [getCameraState, showPlates, realisticMode, selectedEarthquake, dataMinTime, dataMaxTime]);
+  }, [getCameraState, showPlates, visualMode, selectedEarthquake, dataMinTime, dataMaxTime]);
 
   const toggleDark = () => {
     const next = !darkMode;
@@ -747,24 +788,18 @@ export function App({
     onThemeChange(next);
   };
 
-  useEffect(() => { onToggleVisualMode(realisticMode); }, [realisticMode, onToggleVisualMode]);
+  useEffect(() => { onToggleVisualMode(visualMode); }, [visualMode, onToggleVisualMode]);
 
   return (
     <div className="fixed inset-0 z-10 flex flex-col pointer-events-none">
       <TopToolbar
-        realisticMode={realisticMode}
-        onToggleVisualMode={setRealisticMode}
+        visualMode={visualMode}
+        onVisualModeChange={setVisualMode}
         showPlates={showPlates}
         onTogglePlates={onTogglePlates}
         darkMode={darkMode}
         onToggleDark={toggleDark}
-        dataMinTime={dataMinTime}
-        dataMaxTime={dataMaxTime}
         onGetShareURL={onGetShareURL}
-        dataLoading={dataLoading}
-        onReloadData={onReloadData}
-        sharedMinTime={sharedMinTime}
-        sharedMaxTime={sharedMaxTime}
       />
       {dataLoading && (
         <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-auto">
@@ -793,6 +828,12 @@ export function App({
       <BottomTimeline
         allEarthquakes={allEarthquakes}
         onTimeChange={handleTimeChange}
+        onReloadData={onReloadData}
+        dataLoading={dataLoading}
+        dataMinTime={dataMinTime}
+        dataMaxTime={dataMaxTime}
+        sharedMinTime={sharedMinTime}
+        sharedMaxTime={sharedMaxTime}
       />
     </div>
   );

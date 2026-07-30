@@ -23,3 +23,6 @@ externals
 *.sln
 *.sw?
 .env
+
+# Generated debug output
+assets/debug_heightmap.png
