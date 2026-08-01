@@ -1,7 +1,23 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import fs from "fs";
+
+const CLOUDFLARE_INSIGHTS =
+  "<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"d270a85621f74091800c7bc237797b1c\"}'></script>";
+
+function cloudflareInsights(): Plugin {
+  return {
+    name: "inject-cloudflare-insights",
+    apply: "build",
+    transformIndexHtml(html) {
+      return html.replace(
+        "</body>",
+        "\n  " + CLOUDFLARE_INSIGHTS + "\n</body>",
+      );
+    },
+  };
+}
 
 function copyNavaraAssets(): import("vite").Plugin {
   let outDir = "dist";
@@ -29,7 +45,7 @@ function copyNavaraAssets(): import("vite").Plugin {
 // https://vitejs.dev/config/
 export default defineConfig({
   base: "/earthquake-pulse/",
-  plugins: [react(), copyNavaraAssets()],
+  plugins: [react(), copyNavaraAssets(), cloudflareInsights()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
