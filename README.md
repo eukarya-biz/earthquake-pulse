@@ -13,13 +13,11 @@ Opens at `http://localhost:8080`.
 
 ## Screenshots
 
-| Grayscale | Realistic | Digital |
-|:---:|:---:|:---:|
-| ![Grayscale](public/img/visual-grayscale.png) | ![Realistic](public/img/visual-realistic.png) | ![Digital](public/img/visual-digital.png) |
-
-| Light Theme UI |
-|:---:|
-| ![Light Theme UI](public/img/ui-light-theme.png) |
+| Grayscale | Realistic |
+|:---:|:---:|
+| ![Grayscale](public/img/visual-grayscale.png) | ![Realistic](public/img/visual-realistic.png) |
+| **Digital** | **Light Theme UI** |
+| ![Digital](public/img/visual-digital.png) | ![Light Theme UI](public/img/ui-light-theme.png) |
 
 ## Features
 
