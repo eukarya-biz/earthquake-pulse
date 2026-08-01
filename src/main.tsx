@@ -19,6 +19,7 @@ import {
   highlightOverlay,
 } from "./modules/earthquakeVisualization";
 import { setupWaveAnimation } from "./modules/waveSetup";
+import { DigitalGlobeDescriptor } from "./descriptors/DigitalGlobeDescriptor";
 import "./i18n";
 import "./index.css";
 
@@ -46,6 +47,12 @@ function setLoadingProgress(pct: number, key: string): void {
 // ── Bootstrap ────────────────────────────────────────────────────────────────
 
 setLoadingProgress(5, "init");
+
+// Parse exaggeration from URL early (used by DigitalGlobeDescriptor during setup)
+try {
+  const exg = new URLSearchParams(window.location.hash.slice(1)).get("exg");
+  if (exg) DigitalGlobeDescriptor.exaggeration = parseFloat(exg);
+} catch { /* ignore */ }
 
 const { view, overlayPlugin, toggleVisualMode, togglePlateBoundaries, setBackgroundColor } = await setupView();
 

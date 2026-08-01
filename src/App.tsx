@@ -774,13 +774,13 @@ export function App({
     params.set("pl", showPlates ? "1" : "0");
     if (visualMode === "realistic") params.set("rl", "1");
     if (visualMode === "digital") params.set("dm", "1");
+    params.set("exg", DigitalGlobeDescriptor.exaggeration.toString());
     if (selectedEarthquake) params.set("eq", selectedEarthquake.id);
     params.set("dmin", Math.round(dataMinTime).toString());
     params.set("dmax", Math.round(dataMaxTime).toString());
     const { origin, pathname } = window.location;
     return `${origin}${pathname}#${params.toString()}`;
   }, [getCameraState, showPlates, visualMode, selectedEarthquake, dataMinTime, dataMaxTime]);
-
   const toggleDark = () => {
     const next = !darkMode;
     setDarkMode(next);
