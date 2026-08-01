@@ -2,7 +2,7 @@
 
 ## Overview
 
-A point-based digital Earth rendered as ~4.76M glowing dots positioned at real geographic coordinates with real terrain height displacement. Built as a Navara `MeshDesc` and integrated into Earthquake Pulse's three-mode visual system.
+A point-based digital Earth rendered as glowing dots positioned at real geographic coordinates with real terrain height displacement. Built as a Navara `MeshDesc` and integrated into Earthquake Pulse's three-mode visual system (Grayscale / Realistic / Digital).
 
 ## Pipeline
 
@@ -13,16 +13,17 @@ Natural Earth land.geojson (1:110m)
 generator (scripts/generate-land-points.ts)
    ├─ Point-in-polygon test (Turf.js)
    ├─ Web Mercator → tile coordinate mapping
-   └─ Bilinear elevation sampling (Mapzen terrarium tiles, zoom 4)
+   └─ Intra-tile bilinear elevation sampling (Mapzen terrarium tiles, zoom 4)
         │
         ▼
-land_points_{sparse,medium,dense}.bin (4 floats: x y z height_m)
+land_points_{sparse,medium,dense}.bin
+  (quantized 8 bytes/pt: int16 x, int16 y, int16 z, uint16 height)
         │
         ▼
 DigitalGlobeDescriptor (Navara MeshDesc)
-   ├─ loadPositions(): scale unit-sphere XYZ by (R + offset + height×100) along normal
-   ├─ createMesh(): dark sphere + lat/lng grid lines + THREE.Points per LOD
-   └─ update(): LOD switching by camera height, theme-aware color
+   ├─ loadRawData(): decode int16/uint16 → unit-sphere XYZ + height
+   ├─ createMesh(): dark sphere + lat/lng grid + THREE.Points per loaded LOD
+   └─ update(): LOD switching, lazy dense load, exaggeration rebuild
 ```
 
 ## Point Generation
@@ -32,15 +33,26 @@ DigitalGlobeDescriptor (Navara MeshDesc)
 - **Land mask**: Natural Earth 1:110m `ne_110m_land.geojson` (127 polygon features)
 - **Elevation**: Mapzen terrarium tiles at zoom 4 (16×16 tiles, 256×256px each, ～4.2M global samples)
 - **Elevation decoding**: `height = R×256 + G + B/256 − 32768` meters
-- **Bilinear interpolation**: correct pixel offset per neighbor tile at boundaries
+- **Interpolation**: intra-tile bilinear (no cross-tile blending — avoids tile-boundary seams)
 
 ### LOD Levels
 
-| Level | Spacing | Points | Binary Size |
+| Level | Spacing | Points | Binary Size (quantized) |
 |---|---|---|---|
-| Sparse | 0.5° | ~48k | 0.7 MB |
-| Medium | 0.2° | ~298k | 4.5 MB |
-| Dense | 0.1° | ~1.19M | 18.2 MB |
+| Sparse | 0.5° | ~48k | 0.4 MB |
+| Medium | 0.2° | ~298k | 2.3 MB |
+| Dense | 0.1° | ~1.19M | 9.1 MB |
+
+### Binary Quantization
+
+Each point is stored as **8 bytes** (down from 16 bytes for Float32×4):
+
+| Field | Type | Encoding |
+|---|---|---|
+| x, y, z | int16 (little-endian) | `round(unit_component × 32767)` |
+| height | uint16 | `round(height_m / 0.1)` — 0.1m resolution, max 6553m |
+
+Decoded at runtime: `unit = q / 32767`, `height = qh × 0.1`.
 
 ### Coordinate System
 
@@ -52,14 +64,23 @@ y = cos(lat) × sin(lng)    → 90°E
 z = sin(lat)                → North Pole
 ```
 
-Each point also stores a `height_m` field sampled from the Mapzen elevation tiles.
-
 At runtime, the descriptor scales each point along its surface normal:
 ```
-world_pos = unit_pos × (EARTH_RADIUS + SURFACE_OFFSET + height_m × 100)
+world_pos = unit_pos × (EARTH_RADIUS + SURFACE_OFFSET + height_m × exaggeration)
 ```
 
-The `×100` exaggeration factor makes terrain variation visually apparent.
+The **exaggeration** factor is user-adjustable (1–100, default 30) via the Digital dropdown in the header.
+
+### Height-based Coloring
+
+Dots are colored by elevation via vertex colors (cyan → teal → emerald):
+
+```
+t = clamp(height_m / 6000, 0, 1)
+r = 0
+g = 0.9 − 0.12 × t
+b = 1 − 0.67 × t
+```
 
 ### Debug Heightmap
 
@@ -67,7 +88,7 @@ The generator outputs a debug PNG (`assets/debug_heightmap.png`) for visually ve
 
 - **Size**: 2048×1024 pixels (equirectangular projection)
 - **Color ramp**: midnight blue (ocean) → green → yellow → orange → red → white (high peaks)
-- **Full range**: ~−8800m to ~5100m (ocean depths to mountain peaks)
+- **Full range**: ~−10300m to ~6400m (ocean depths to mountain peaks)
 - **Land points**: clamped to ≥ 0m before storing
 
 Implementation in `scripts/generate-land-points.ts`, function `exportDebugHeightmap()`:
@@ -84,11 +105,11 @@ The heightmap runs between `preloadTiles()` and `generateLevel()` — after all 
 
 ### Scene Composition
 
-1. **Dark sphere** (`MeshBasicMaterial`, `toneMapped: false`) — depth occlusion + visual base
+1. **Dark sphere** (`MeshBasicMaterial`, `0x0a0a0a`) — depth occlusion + visual base
 2. **Lat/lng grid lines** (every 10°, `LineBasicMaterial`, 25% opacity, `#333333`)
-3. **THREE.Points per LOD level** (`PointsMaterial`, size 5px, depth tested)
+3. **THREE.Points per LOD level** (`PointsMaterial`, size 1px, vertex-colored, depth tested)
 
-### LOD Switching
+### LOD Switching & Deferred Loading
 
 Evaluated every frame in `update()`:
 
@@ -100,25 +121,22 @@ Evaluated every frame in `update()`:
 
 Only one LOD renders at a time; others are `visible = false`.
 
-### Theme Adaptation
+**Sparse + medium** load eagerly at startup. **Dense** is deferred — it loads lazily when the camera drops below the dense threshold (+2,000 km margin) to keep the initial load small (~2.7 MB vs ~12 MB).
 
-| Theme | Globe Color | Point Color |
-|---|---|---|
-| Dark | `#0a0a0a` | `#57c8ff` (cyan) |
-| Light | `#0a0a0a` | `#aaaaaa` (light grey) |
+### Exaggeration Control
 
-The globe stays dark in both themes for depth occlusion. Only dots change.
+`DigitalGlobeDescriptor.exaggeration` is a static property (1–100, default 30) adjustable from the UI. When it changes, `update()` rebuilds all LOD position buffers (vertex colors are unaffected — they depend only on raw height).
 
 ## Visual Mode Integration
 
-The digital globe is toggleable via `viewSetup.ts`:
+The digital globe is toggled via the header `ToggleGroup`:
 
 ```
 Mode selector: Grayscale / Realistic / Digital
 ```
 
 | Mode | Basemap | Sky/Atmo | Terrain | Digital Globe |
-|---|---|---|---|
+|---|---|---|---|---|
 | Grayscale | ✅ | ❌ | ✅ | ❌ |
 | Realistic | ✅ | ✅ | ✅ | ❌ |
 | Digital | ❌ | ❌ | ❌ | ✅ |
@@ -135,9 +153,9 @@ project/
 ├── assets/land.geojson                          # Natural Earth land polygons
 ├── assets/debug_heightmap.png                    # Debug elevation heatmap (generated)
 ├── public/
-│   ├── land_points_sparse.bin                   # 0.7 MB
-│   ├── land_points_medium.bin                   # 4.5 MB
-│   └── land_points_dense.bin                    # 18.2 MB
+│   ├── land_points_sparse.bin                   # 0.4 MB (quantized)
+│   ├── land_points_medium.bin                   # 2.3 MB (quantized)
+│   └── land_points_dense.bin                    # 9.1 MB (quantized)
 ├── scripts/generate-land-points.ts              # Offline point generator
 ├── src/
 │   ├── descriptors/DigitalGlobeDescriptor.ts    # Navara MeshDesc
@@ -153,7 +171,7 @@ project/
 pnpm generate:land
 ```
 
-Downloads 256 Mapzen elevation tiles, runs point-in-polygon tests, and writes binaries to `public/`. Takes 2–5 minutes depending on network.
+Downloads 256 Mapzen elevation tiles, runs point-in-polygon tests, and writes quantized binaries to `public/`. Takes 2–5 minutes depending on network.
 
 ### Modify LOD Spacing
 
@@ -169,26 +187,28 @@ const LOD_LEVELS = [
 
 ### Adjust Terrain Exaggeration
 
-Edit `SURFACE_OFFSET` and the height multiplier in `src/descriptors/DigitalGlobeDescriptor.ts`:
+`SURFACE_OFFSET` (base offset) and the exaggeration multiplier live in `src/descriptors/DigitalGlobeDescriptor.ts`:
 
 ```ts
-const SURFACE_OFFSET = 500;  // base offset above sphere
-const r = EARTH_RADIUS + SURFACE_OFFSET + h * 100;  // ×100 exaggeration
+const SURFACE_OFFSET = 0;  // meters above sphere
+const r = EARTH_RADIUS + SURFACE_OFFSET + data.heights[i] * exaggeration;  // exaggeration: 1–100
 ```
+
+Users adjust exaggeration via the Digital dropdown slider in the header.
 
 ### Change Colors
 
 Edit constants in `DigitalGlobeDescriptor.ts`:
 
 ```ts
-const DARK_GLOBE = 0x0a0a0a;
-const DARK_POINTS = 0x57c8ff;
-const LIGHT_POINTS = 0xaaaaaa;
+const DARK_GLOBE = 0x0a0a0a;  // base sphere color
+const GRID_COLOR = 0x333333;  // lat/lng grid lines
+// Dot colors are height-based — edit heightColor() for the gradient
 ```
 
 ## Known Limitations
 
 1. **Elevation resolution**: Zoom 4 tiles give ~20km/pixel at equator. Max sampled height ~5150m (highest peaks are smoothed).
 2. **Coastal points**: Point-in-polygon includes some small coastal lakes/bays; their height may be incorrectly sampled from adjacent ocean pixels (clamped to 0).
-3. **Tone mapping**: Navara's ACES tone mapping affects all materials. The globe appears slightly grey even when set to pure white.
+3. **Tone mapping**: Navara's ACES tone mapping affects all materials. The globe may appear slightly grey even when set to pure white.
 4. **No polar coverage**: Mapzen terrarium tiles clip at ~85.05° latitude (Web Mercator limit). Points near poles use edge values.

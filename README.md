@@ -25,7 +25,7 @@ Opens at `http://localhost:8080`.
 - **3D Visualization** — Magnitude-based color-coded spheres, depth indicator cylinders, seismic wave ring animations on a 3D globe.
 - **Timeline** — Draggable cyan (range start) and red (current time) handles, pan the window, play/pause playback at 1–10× speed, reset to defaults.
 - **Statistics Panel** — Live magnitude breakdown, event counts, earthquake list sortable by time or magnitude.
-- **Visual Modes** — Toggle realistic photoreal rendering or tectonic plate boundaries in Settings.
+- **Visual Modes** — Switch between Grayscale, Realistic, and Digital (point-based globe) via the header toggle. Adjust terrain exaggeration (1–100×) from the Digital dropdown.
 - **Share View** — Generate a shareable link encoding camera position, timeline range, and settings. Loading the link restores the exact view and fetches the same time range from USGS.
 - **Interactive Map** — Click earthquakes or labels to view details; click empty space to dismiss.
 - **Dark/Light Theme** — Toggle in the header.
@@ -55,7 +55,8 @@ src/
 │   ├── earthquakeVisualization.ts        # GeoJSON layers, depth cylinders, overlay labels
 │   └── waveSetup.ts                      # Seismic wave ring animation
 ├── descriptors/
-│   └── SeismicWaveDescriptor.ts          # Custom Navara MeshDesc for wave rings
+│   ├── SeismicWaveDescriptor.ts          # Custom Navara MeshDesc for wave rings
+│   └── DigitalGlobeDescriptor.ts         # Point-based digital globe (3 LODs, height-colored)
 ├── components/ui/                        # shadcn/ui primitives
 ├── utils/
 │   ├── earthquakeDataFetcher.ts          # USGS summary feed + FDSN query API client
@@ -64,6 +65,10 @@ src/
 └── types/
     └── earthquake.ts                     # TypeScript interfaces
 ```
+
+## Generation Script
+
+`scripts/generate-land-points.ts` is an offline tool that samples Natural Earth land polygons + Mapzen terrain elevation to produce the digital-globe point binaries in `public/`. Run with `pnpm generate:land`. See [docs/digital-globe.md](docs/digital-globe.md) for details.
 
 ## Magnitude Classification
 
@@ -82,7 +87,8 @@ src/
 - **Click** earthquake markers or sidebar items to view details · click empty space to dismiss
 - **Timeline** — Drag cyan handle (range start) / red handle (current time), drag the highlighted area to pan, press Play to animate, ↺ to reset
 - **Data range** — Select past 7 days, past 24 hours, or a fixed shared range from the header dropdown; ↻ to refresh
-- **Settings (⚙)** — Toggle plate boundaries and realistic rendering mode
+- **Visual modes** — Grayscale / Realistic / Digital toggle in the header; use the ▾ on Digital to adjust terrain exaggeration
+- **Settings (⚙)** — Toggle tectonic plate boundaries
 - **Share (↗)** — Copy a link that restores the current camera, timeline, and settings
 - **Info (ℹ)** — Feature overview and links
 - **Theme (☀/🌙)** — Switch between dark and light mode
