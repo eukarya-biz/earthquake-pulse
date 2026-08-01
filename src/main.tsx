@@ -306,13 +306,30 @@ function renderApp(): void {
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
-function handleTimeChange(currentTime: Date, rangeStart: Date, rangeEnd: Date): void {
+function applyTimeChange(currentTime: Date, rangeStart: Date, rangeEnd: Date): void {
   setTimeRange(rangeStart.getTime(), rangeEnd.getTime());
   view.atmosphere.date = new Date(currentTime);
   const visible = getVisibleEarthquakes(earthquakes);
   currentVisibleEarthquakes = visible;
   updateEarthquakeVisualization(view, overlayPlugin, overlayContainer, visible);
   renderApp();
+}
+
+// Throttle time changes to once per animation frame (coalesces rapid drag events)
+let pendingTime: { current: Date; start: Date; end: Date } | null = null;
+let rafId = 0;
+
+function handleTimeChange(currentTime: Date, rangeStart: Date, rangeEnd: Date): void {
+  pendingTime = { current: currentTime, start: rangeStart, end: rangeEnd };
+  if (rafId) return;
+  rafId = requestAnimationFrame(() => {
+    rafId = 0;
+    if (pendingTime) {
+      const p = pendingTime;
+      pendingTime = null;
+      applyTimeChange(p.current, p.start, p.end);
+    }
+  });
 }
 
 function handleEarthquakeClick(earthquake: Earthquake): void {
