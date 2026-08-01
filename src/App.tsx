@@ -163,56 +163,87 @@ function TopToolbar({
     {infoOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-auto">
         <div className="absolute inset-0 backdrop-blur-sm bg-background/40" onClick={() => setInfoOpen(false)} />
-        <div className="relative w-full max-w-md p-6 m-4 border shadow-2xl bg-background rounded-xl">
-          <button onClick={() => setInfoOpen(false)} className="absolute top-4 right-4 text-foreground/40 hover:text-foreground/70">
-            <X className="w-4 h-4" />
-          </button>
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-lg font-bold text-foreground">Earthquake Pulse</h2>
+        <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto border shadow-2xl bg-background rounded-xl">
+          {/* Key visual */}
+          <div className="relative">
+            <img src={`${import.meta.env.BASE_URL}img/key-visual.png`} alt="" className="w-full h-44 object-cover rounded-t-xl" />
+            <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
+            <div className="absolute bottom-0 left-0 p-5 flex items-center gap-3">
+              <Activity className="w-6 h-6 text-cyan-400" />
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Earthquake Pulse</h2>
+                <p className="text-[11px] text-foreground/60">{t("info.intro")}</p>
+              </div>
+            </div>
+            <button onClick={() => setInfoOpen(false)} className="absolute top-3 right-3 p-1.5 rounded-full bg-black/40 text-white/80 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <div className="space-y-4 text-sm leading-relaxed text-foreground/70">
+
+          <div className="p-5 space-y-6">
+            {/* Visual modes */}
             <div>
-              <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.data")}</h3>
-              <p>{t("info.dataDesc")}</p>
+              <h3 className="mb-2 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.vmTitle")}</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg border overflow-hidden">
+                  <img src={`${import.meta.env.BASE_URL}img/visual-grayscale.png`} alt="" className="w-full h-20 object-cover" />
+                  <div className="p-2">
+                    <div className="text-[11px] font-semibold text-foreground/80">{t("info.vmGrayscale.title")}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{t("info.vmGrayscale.desc")}</div>
+                  </div>
+                </div>
+                <div className="rounded-lg border overflow-hidden">
+                  <img src={`${import.meta.env.BASE_URL}img/visual-realistic.png`} alt="" className="w-full h-20 object-cover" />
+                  <div className="p-2">
+                    <div className="text-[11px] font-semibold text-foreground/80">{t("info.vmRealistic.title")}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{t("info.vmRealistic.desc")}</div>
+                  </div>
+                </div>
+                <div className="rounded-lg border overflow-hidden">
+                  <img src={`${import.meta.env.BASE_URL}img/visual-digital.png`} alt="" className="w-full h-20 object-cover" />
+                  <div className="p-2">
+                    <div className="text-[11px] font-semibold text-foreground/80">{t("info.vmDigital.title")}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{t("info.vmDigital.desc")}</div>
+                  </div>
+                </div>
+              </div>
             </div>
+
+            {/* Features */}
             <div>
-              <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.nav")}</h3>
-              <ul className="space-y-1 text-xs list-disc list-inside">
-                <li>{t("info.navDrag")}</li>
-                <li>{t("info.navClick")}</li>
-                <li>{t("info.navDismiss")}</li>
-              </ul>
+              <h3 className="mb-2 text-xs font-semibold tracking-wider uppercase text-foreground/50">Features</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border overflow-hidden bg-muted/20">
+                  <img src={`${import.meta.env.BASE_URL}img/feature-data-range.png`} alt="" className="w-full h-28 object-contain" />
+                  <div className="p-2">
+                    <div className="text-[11px] font-semibold text-foreground/80">{t("info.featureData.title")}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{t("info.featureData.desc")}</div>
+                  </div>
+                </div>
+                <div className="rounded-lg border overflow-hidden bg-muted/20">
+                  <img src={`${import.meta.env.BASE_URL}img/feature-timeline.png`} alt="" className="w-full h-28 object-contain" />
+                  <div className="p-2">
+                    <div className="text-[11px] font-semibold text-foreground/80">{t("info.featureTimeline.title")}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{t("info.featureTimeline.desc")}</div>
+                  </div>
+                </div>
+                <div className="rounded-lg border overflow-hidden bg-muted/20">
+                  <img src={`${import.meta.env.BASE_URL}img/feature-list.png`} alt="" className="w-full h-28 object-contain" />
+                  <div className="p-2">
+                    <div className="text-[11px] font-semibold text-foreground/80">{t("info.featureList.title")}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{t("info.featureList.desc")}</div>
+                  </div>
+                </div>
+                <div className="rounded-lg border overflow-hidden bg-muted/20">
+                  <img src={`${import.meta.env.BASE_URL}img/feature-sharing.png`} alt="" className="w-full h-28 object-contain" />
+                  <div className="p-2">
+                    <div className="text-[11px] font-semibold text-foreground/80">{t("info.featureSharing.title")}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{t("info.featureSharing.desc")}</div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.tlTitle")}</h3>
-              <ul className="space-y-1 text-xs list-disc list-inside">
-                <li>{t("info.tlStart")}</li>
-                <li>{t("info.tlEnd")}</li>
-                <li>{t("info.tlPan")}</li>
-                <li>{t("info.tlPlay")}</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.vmTitle")}</h3>
-              <p className="text-xs">{t("info.vmDesc")}</p>
-            </div>
-            <div>
-              <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.sdTitle")}</h3>
-              <p className="text-xs">{t("info.sdDesc")}</p>
-            </div>
-            <div>
-              <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.shTitle")}</h3>
-              <p className="text-xs">{t("info.shDesc")}</p>
-            </div>
-            <div>
-              <h3 className="mb-1 text-xs font-semibold tracking-wider uppercase text-foreground/50">{t("info.engine")}</h3>
-              <p className="text-xs">
-                <a href="https://github.com/reearth/navara" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">
-                  {t("info.engineDesc")}
-                </a>
-              </p>
-            </div>
+
           </div>
         </div>
       </div>
