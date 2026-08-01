@@ -185,10 +185,24 @@ function generateLevel(spacing: number, name: string, features: LandData["featur
     }
   }
 
-  const buffer = new Float32Array(coords);
+  // Quantized layout per point (8 bytes):
+  //   int16 x (unit -1..1), int16 y, int16 z, uint16 height (0.1m resolution)
+  const buf = Buffer.alloc(landCount * 8);
+  for (let i = 0; i < landCount; i++) {
+    const base = i * 4;
+    const qx = Math.round(coords[base] * 32767);
+    const qy = Math.round(coords[base + 1] * 32767);
+    const qz = Math.round(coords[base + 2] * 32767);
+    const qh = Math.round(coords[base + 3] / 0.1);
+    buf.writeInt16LE(qx, i * 8);
+    buf.writeInt16LE(qy, i * 8 + 2);
+    buf.writeInt16LE(qz, i * 8 + 4);
+    buf.writeUInt16LE(qh, i * 8 + 6);
+  }
+
   const outPath = path.resolve(import.meta.dirname!, `../public/land_points_${name}.bin`);
-  fs.writeFileSync(outPath, Buffer.from(buffer.buffer));
-  const sizeMB = (buffer.byteLength / 1024 / 1024).toFixed(1);
+  fs.writeFileSync(outPath, buf);
+  const sizeMB = (buf.byteLength / 1024 / 1024).toFixed(1);
   console.log(`[${name}] ${spacing}° → ${landCount.toLocaleString()} pts · ${sizeMB} MB · height ${minH.toFixed(0)}–${maxH.toFixed(0)}m`);
 }
 

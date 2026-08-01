@@ -43,17 +43,20 @@ async function loadRawData(file: string): Promise<RawLodData> {
   if (rawDataCache.has(file)) return rawDataCache.get(file)!;
   const response = await fetch(`${import.meta.env.BASE_URL}${file}`);
   const buffer = await response.arrayBuffer();
-  const raw = new Float32Array(buffer);
-  const stride = 4;
-  const count = raw.length / stride;
+  const dv = new DataView(buffer);
+  const count = Math.floor(buffer.byteLength / 8);
   const unitPositions = new Float32Array(count * 3);
   const heights = new Float32Array(count);
   for (let i = 0; i < count; i++) {
-    const base = i * stride;
-    unitPositions[i * 3] = raw[base];
-    unitPositions[i * 3 + 1] = raw[base + 1];
-    unitPositions[i * 3 + 2] = raw[base + 2];
-    heights[i] = raw[base + 3];
+    const base = i * 8;
+    const qx = dv.getInt16(base, true);
+    const qy = dv.getInt16(base + 2, true);
+    const qz = dv.getInt16(base + 4, true);
+    const qh = dv.getUint16(base + 6, true);
+    unitPositions[i * 3] = qx / 32767;
+    unitPositions[i * 3 + 1] = qy / 32767;
+    unitPositions[i * 3 + 2] = qz / 32767;
+    heights[i] = qh * 0.1;
   }
   console.log(`[DigitalGlobe] ${file}: ${count} pts loaded`);
   const data: RawLodData = { unitPositions, heights };
@@ -106,6 +109,8 @@ export class DigitalGlobeDescriptor extends MeshDesc<MeshConfig> {
   private lastExaggeration = 0;
   private static _exaggeration = 30;
   private static preloaded = false;
+  private static denseLoaded = false;
+  private denseLoading = false;
 
   static get exaggeration(): number { return DigitalGlobeDescriptor._exaggeration; }
   static set exaggeration(v: number) {
@@ -114,7 +119,11 @@ export class DigitalGlobeDescriptor extends MeshDesc<MeshConfig> {
 
   static async preload(): Promise<void> {
     if (DigitalGlobeDescriptor.preloaded) return;
-    await Promise.all(LOD_LEVELS.map((l) => loadRawData(l.file)));
+    // Load sparse + medium eagerly; dense is deferred until camera approaches.
+    await Promise.all([
+      loadRawData(LOD_LEVELS[0].file),
+      loadRawData(LOD_LEVELS[1].file),
+    ]);
     DigitalGlobeDescriptor.preloaded = true;
   }
 
@@ -171,6 +180,20 @@ export class DigitalGlobeDescriptor extends MeshDesc<MeshConfig> {
 
   update(): void {
     const height = this.view.camera.positionGeographic?.height ?? 0;
+
+    // Lazily load dense LOD when camera approaches (< dense threshold + margin)
+    if (!DigitalGlobeDescriptor.denseLoaded && !this.denseLoading) {
+      const denseThreshold = LOD_LEVELS[LOD_LEVELS.length - 1].threshold;
+      if (height < denseThreshold + 2_000_000) {
+        this.denseLoading = true;
+        loadRawData(LOD_LEVELS[LOD_LEVELS.length - 1].file).then(() => {
+          DigitalGlobeDescriptor.denseLoaded = true;
+          this.addLodPoints(LOD_LEVELS.length - 1);
+          this.denseLoading = false;
+        }).catch(() => { this.denseLoading = false; });
+      }
+    }
+
     let targetLod = LOD_LEVELS.length - 1;
     for (let i = 0; i < LOD_LEVELS.length; i++) {
       if (height > LOD_LEVELS[i].threshold) { targetLod = i; break; }
@@ -187,6 +210,37 @@ export class DigitalGlobeDescriptor extends MeshDesc<MeshConfig> {
         entry.points.geometry.setAttribute("position", new BufferAttribute(positions, 3));
         entry.points.geometry.attributes.position.needsUpdate = true;
       }
+    }
+  }
+
+  private addLodPoints(levelIndex: number): void {
+    const level = LOD_LEVELS[levelIndex];
+    const data = rawDataCache.get(level.file);
+    if (!data || !this.group) return;
+
+    // Avoid duplicate creation
+    if (this.lodEntries.some((e) => e.level === levelIndex)) return;
+
+    const material = new PointsMaterial({
+      size: POINT_SIZE,
+      vertexColors: true,
+      depthTest: true,
+      depthWrite: true,
+    });
+    const exaggeration = DigitalGlobeDescriptor._exaggeration;
+    const positions = buildPositions(data, exaggeration);
+    const colors = buildColors(data);
+    const geometry = new BufferGeometry();
+    geometry.setAttribute("position", new BufferAttribute(positions, 3));
+    geometry.setAttribute("color", new BufferAttribute(colors, 3));
+    const points = new Points(geometry, material);
+    points.visible = false;
+    this.group.add(points);
+    this.lodEntries.push({ points, material, level: levelIndex, file: level.file });
+
+    // If this is now the active LOD, show it
+    if (levelIndex === this.currentLod) {
+      points.visible = true;
     }
   }
 
